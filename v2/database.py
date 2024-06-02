@@ -1,7 +1,7 @@
 from os import sep, walk
 import sqlite3
 from sqlite3.dbapi2 import Row
-from typing import List
+from typing import List, Tuple
 from datetime import  date
 
 # TODO: time attributes and loading history
@@ -44,7 +44,7 @@ def createTable(cur: sqlite3.Cursor, tableName : str, attr: List[str]) -> None:
 
 # TODO: Debug 'checkExisting' due to change in datatype (val1 -> string to Int)
 def checkExisting(cur: sqlite3.Cursor, tableName: str, cond1: str, val1: int)-> bool:
-    # print("__CHECKEXISTING__")
+    print("__CHECKEXISTING__")
     print(cond1, val1)
     cmd = f"SELECT EXISTS(SELECT 1 FROM {tableName} WHERE {cond1} = (?) )"
     cur.execute(cmd, str(val1))
@@ -52,69 +52,51 @@ def checkExisting(cur: sqlite3.Cursor, tableName: str, cond1: str, val1: int)-> 
     return result[0]
     
 
-# add to question history
-
-# FIX:  DeprecationWarning: The default date adapter is deprecated as of Python 3.12; see the sqlite3 documentation for suggested replacement recipes
-def updateQHist(cur: sqlite3.Cursor, QID: int) -> None:
-    # TODO: Update: Date Taken and/or Completed (if Applicable)
+def userInput():
     # TODO: Get user Input
-
     # NOTE: by default dateAttempted to today()
     # TODO: USER INPUT: "Did you attempt today? Y/N"
-    #if 'N', Prompt datetime input
-
-    # id, name, difficulty, type, date
-    tableName = "QuestionHistory"
-    # id = QID
+    #       if 'N', Prompt datetime input
+    # NOTE: faking user inputs: completed, code, notes
     dateAttempted = date.today()
     print("Date Attempted: ", dateAttempted)
-    # NOTE: faking user inputs: completed, code, notes
     tempComp = True
     tempCode = "hello('World!')" #(optional)
     tempNotes = "this shit was hard!"
 
+    return (tempComp, tempCode, dateAttempted, tempNotes)
+
+
+# FIX:  DeprecationWarning: The default date adapter is deprecated as of Python 3.12; see the sqlite3 documentation for suggested replacement recipes
+def adapt_datetime(ts):
+    pass
+
+def updateQHist(cur: sqlite3.Cursor, QID: int) -> None:
+    print("updatingQHIST")
+    # TODO: Update: Date Taken and/or Completed (if Applicable)
+    tempComp, tempCode, dateAttempted, tempNotes = userInput()
+    print(tempComp, tempCode, dateAttempted, tempNotes)
+
     cmd = f"INSERT INTO QuestionHistory VALUES(?, ?, ?, ?, ?, ?)"
     cur.execute(cmd, (None, QID, tempComp, tempCode, dateAttempted, tempNotes))
 
-    # ----------------------
-    # NOTE: change attrib for debugging
-    attrib = "History_ID, Question_ID, date_attempted, Notes"
-    cmd = f"SELECT {attrib} from {tableName}"
-    res = cur.execute(cmd)
-    print("\nCurrent History:\n HID, QID, DATE: ")
-    vals = res.fetchall()
-    for v in vals:
-        print(f"\t{v}")
-    print("-------------")
-
 
 # TODO: change "Question_ID dynamically"
-# FIX: add to questionBank and QuestionHistory
 def addQuestion(cur: sqlite3.Cursor, tableName: str, question: q) -> None:
 
     if checkExisting(cur, tableName, "Question_ID", question.ID):
         print("Update Question History:")
-        # Add row to Question history
         updateQHist(cur, question.ID)
         return
-
     
     print("Adding Question to QuestionBank:")
-
     data = question.getData()
-    # FIX: Remove Later
-    print("data:", data)
 
     placeholder = ', '.join(['?' for _ in range (len(data))])
     cmd = f"INSERT INTO {tableName} VALUES({placeholder})"
     cur.execute(cmd, data)
 
-    # FIX: Remove later
-
-    # FIX: verify insertion
-    cmd = f"SELECT Name from {tableName}"
-    res = cur.execute(cmd)
-    print(res.fetchall())
+    updateQHist(cur, question.ID)
 
 
 def removeQuestion(cur: sqlite3.Cursor, tableName: str, attrib: str, value: str) -> None:
@@ -173,27 +155,34 @@ def printHelper(headers, widths) -> Tuple[str, str, str]:
 def printTable(cur: sqlite3.Cursor, tableName: str) -> None:
     headers = []
     widths = []
+    opt = ""
+
     if tableName == "QuestionBank":
+        opt = "QBNK"
         headers = [" ROW ID", "QID", "NAME", "DIFFICULTY", "TYPE"]
         widths = [8,5,12,11,8]
-    elif tableName == "QuestonHistory":
-        headers = [" ROW ID", "HID", "COMPLETED", "CODE", "DATE", "NOTES", "QID"]
-        widths = [8,5,5,12,30,12,5]
+    elif tableName == "QuestionHistory":
+        opt = "QHIST"
+        headers = [" ROW ID", "HID", "QID", "Completed", "CODE           ", "DATE", "NOTES"]
+        widths = [8,5,5,11,6,12,7,]
     else:
         print("Invalid Table")
 
     header_format, separator, row_format = printHelper(headers, widths)
-
     cmd = f"SELECT rowid, * FROM {tableName}"
     cur.execute(cmd)
     items = cur.fetchall()
 
-    print(f"\n{tableName}:")
+    print(f"\n{tableName}:\n")
     print(header_format)
     print(separator)
     #BUG: fix positions
+
     for item in items:
-        print(row_format.format(item[0], item[1], item[2], item[3], item[4]))
+        if (opt == "QBNK"):
+            print(row_format.format(item[0], item[1], item[2], item[3], item[4]))
+        if (opt == "QHIST"):
+            print(row_format.format(item[0], item[1], item[2], item[3], item[4], item[5], item[6]))
 
 
 
@@ -273,6 +262,7 @@ def main():
     addQuestion(cursor, "QuestionBank", q2)
 
     printTable(cursor, "QuestionBank")
+    printTable(cursor, "QuestionHistory")
 
     connection.commit()
     connection.close()
