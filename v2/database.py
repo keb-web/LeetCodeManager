@@ -1,4 +1,4 @@
-from os import walk
+from os import sep, walk
 import sqlite3
 from sqlite3.dbapi2 import Row
 from typing import List
@@ -7,6 +7,10 @@ from datetime import  date
 # TODO: time attributes and loading history
 # TODO: History -> update history with new submission
 # TODO: History -> Link Question ID to History ID
+
+# TODO: PrintTable() compatibility with 'QustionHistory ' table
+# TODO: ALter Question -> History Prints -> loadHstory method 1/2
+# TODO: UI GENERAL IMPLEMETNATION -> Add Colors
 
 class q:
     # WARNING: Lsp throws error
@@ -49,18 +53,8 @@ def checkExisting(cur: sqlite3.Cursor, tableName: str, cond1: str, val1: int)-> 
     
 
 # add to question history
-"""
-            "History_ID INTEGER PRIMARY KEY AUTOINCREMENT",
-            "Question_ID INTEGER",
-            "Compelted BOOLEAN NOT NULL",
-            "Code TEXT",
-            "date_attempted DATETIME",
-            "Notes TEXT",
-            "FOREIGN KEY (Question_ID) REFERENCES QuestionBank(Question_ID)"
-"""
-# FIX:  DeprecationWarning: The default date adapter is deprecated as of Python 3.12; see the sqlite3 documentation for suggested replacement recipes
-# FIX: History appended multiple times. Check existing??
 
+# FIX:  DeprecationWarning: The default date adapter is deprecated as of Python 3.12; see the sqlite3 documentation for suggested replacement recipes
 def updateQHist(cur: sqlite3.Cursor, QID: int) -> None:
     # TODO: Update: Date Taken and/or Completed (if Applicable)
     # TODO: Get user Input
@@ -78,19 +72,20 @@ def updateQHist(cur: sqlite3.Cursor, QID: int) -> None:
     tempComp = True
     tempCode = "hello('World!')" #(optional)
     tempNotes = "this shit was hard!"
-    # ------------------------------------------------
 
     cmd = f"INSERT INTO QuestionHistory VALUES(?, ?, ?, ?, ?, ?)"
     cur.execute(cmd, (None, QID, tempComp, tempCode, dateAttempted, tempNotes))
 
-    # FIX: Verify Insertion
+    # ----------------------
     # NOTE: change attrib for debugging
-    attrib = "date_attempted"
+    attrib = "History_ID, Question_ID, date_attempted, Notes"
     cmd = f"SELECT {attrib} from {tableName}"
     res = cur.execute(cmd)
-    print(res.fetchall())
-
-
+    print("\nCurrent History:\n HID, QID, DATE: ")
+    vals = res.fetchall()
+    for v in vals:
+        print(f"\t{v}")
+    print("-------------")
 
 
 # TODO: change "Question_ID dynamically"
@@ -159,30 +154,44 @@ def printMasterSchema(cur: sqlite3.Cursor, attr: str = "name")-> None:
 def printTableColumns(cur: sqlite3.Cursor ):
     pass
 
+def printHelper(headers, widths) -> Tuple[str, str, str]:
+    header_format = ""
+    row_format = ""
+    separator = "-" * (sum(widths) + len(widths) * 3 - 1)
+
+    for i in range(len(headers)):
+        header_format += f"{headers[i]:<{widths[i]}} | "
+        row_format += f"{{:<{widths[i]}}} | "
+    header_format = header_format[:-2]
+    row_format = row_format[:-2]
+
+    return (header_format, separator, row_format)
+
 
 #TODO: Add colors
 #TODO: Check "QuestionHistory" table compatability
 def printTable(cur: sqlite3.Cursor, tableName: str) -> None:
+    headers = []
+    widths = []
+    if tableName == "QuestionBank":
+        headers = [" ROW ID", "QID", "NAME", "DIFFICULTY", "TYPE"]
+        widths = [8,5,12,11,8]
+    elif tableName == "QuestonHistory":
+        headers = [" ROW ID", "HID", "COMPLETED", "CODE", "DATE", "NOTES", "QID"]
+        widths = [8,5,5,12,30,12,5]
+    else:
+        print("Invalid Table")
+
+    header_format, separator, row_format = printHelper(headers, widths)
+
     cmd = f"SELECT rowid, * FROM {tableName}"
     cur.execute(cmd)
     items = cur.fetchall()
 
-    headers = [" ROW ID", "QID", "NAME", "DIFFICULTY", "TYPE"]
-    widths = [8, 5, 12, 11, 8]
-
-    # Create the format string using the widths
-    header_format = f"{headers[0]:^{widths[0]}} | {headers[1]:^{widths[1]}} | {headers[2]:<{widths[2]}} | {headers[3]:<{widths[3]}} | {headers[4]:<{widths[4]}}"
-    separator = "-" * (sum(widths) + len(widths) * 3 - 1)  # Total width of the table including separators
-    row_format = f"{{:^{widths[0]}}} | {{:^{widths[1]}}} | {{:<{widths[2]}}} | {{:<{widths[3]}}} | {{:<{widths[4]}}}"
-
-    # Print the header and separator
     print(f"\n{tableName}:")
-    print(separator)
     print(header_format)
     print(separator)
-
-
-    # Print each row using the row format
+    #BUG: fix positions
     for item in items:
         print(row_format.format(item[0], item[1], item[2], item[3], item[4]))
 
@@ -215,11 +224,26 @@ def printCol(cur: sqlite3.Cursor, tableName:str, id:int) -> None:
 # Notes TEXT 
 # FOREIGN KEY (Question_ID) REFERENCES QuestionBank(Question_ID)
 
+#TODO: search for QID in QHIST and return LATES
+def getLatestSubmission():
+    pass
+def getFullQuestionHistory():
+    pass
+#TODO: implement redoquestion tracking
+# opt 1
+# Redo create column in history (REDO-date) with DateCompleted + timedelta(wk2)
+# Scheduler will execute one search of QHIST Daily, returning...
+# The QID of where time.today() == redo.date
+# opt 2
+# Call getlastest submission() + timedelta(two weeks)
+# Return value will be the date of submission + 2 weeks
+# if return value == time.today() send notification
+# TODO: 
+# setup daily scheduler tha runs REDOQUESTION Tracking once a day
+
 def main():
     connection = createDatabase()
     cursor = connection.cursor()
-
-    # NOTE: For Testing... Remove later
 
     createTable( cursor,
                 "QuestionBank", [
@@ -245,15 +269,8 @@ def main():
     q1= q(0, "TwoSum", "Easy", "Arrays")
     q2= q(1, "ThreeSum", "Medium", "LL")
 
-    # dupe = q(ID, Name, Difficulty, QuestionType)
-    # testQuestion2 = q("1", "THREESUM", "Medium", "Arrays")
-    # testQuestionRemove = q("2", "TODELETE", "HARD", "TREES")
-
     addQuestion(cursor, "QuestionBank", q1)
     addQuestion(cursor, "QuestionBank", q2)
-    # addQuestion(cursor, TableName, testQuestion2)
-    # addQuestion(cursor, TableName, dupe)
-    # addQuestion(cursor, TableName, testQuestionRemove)
 
     printTable(cursor, "QuestionBank")
 
