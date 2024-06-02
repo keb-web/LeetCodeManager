@@ -1,4 +1,5 @@
 from os import sep, walk
+from re import search
 import sqlite3
 from sqlite3.dbapi2 import Row
 from typing import List, Tuple
@@ -13,8 +14,6 @@ from datetime import  date
 # TODO: UI GENERAL IMPLEMETNATION -> Add Colors
 
 class q:
-    # WARNING: Lsp throws error
-    # TODO: Remove Date attribute
     def __init__(self, ID: int, Name: str, Difficulty: str, Type: str) -> None:
         self.ID = ID
         self.Name = Name
@@ -41,16 +40,21 @@ def createTable(cur: sqlite3.Cursor, tableName : str, attr: List[str]) -> None:
     cmd = f"CREATE TABLE IF NOT EXISTS {tableName}({columns})"
     cur.execute(cmd)
 
-
-# TODO: Debug 'checkExisting' due to change in datatype (val1 -> string to Int)
 def checkExisting(cur: sqlite3.Cursor, tableName: str, cond1: str, val1: int)-> bool:
-    print("__CHECKEXISTING__")
-    print(cond1, val1)
     cmd = f"SELECT EXISTS(SELECT 1 FROM {tableName} WHERE {cond1} = (?) )"
     cur.execute(cmd, str(val1))
     result = cur.fetchone()
     return result[0]
-    
+
+# Adapters aConverters registered to sqlite3
+# date -> string
+def adapt_date(date_obj):
+    return date_obj.isoformat()
+# string -> date
+def convert_date(date_text):
+    return date.fromisoformat(date_text.decode())
+sqlite3.register_adapter(date, adapt_date)
+sqlite3.register_converter("DATE", convert_date)
 
 def userInput():
     # TODO: Get user Input
@@ -59,23 +63,19 @@ def userInput():
     #       if 'N', Prompt datetime input
     # NOTE: faking user inputs: completed, code, notes
     dateAttempted = date.today()
-    print("Date Attempted: ", dateAttempted)
+    print(f"Date Attempted:{dateAttempted}.")
     tempComp = True
     tempCode = "hello('World!')" #(optional)
     tempNotes = "this shit was hard!"
 
     return (tempComp, tempCode, dateAttempted, tempNotes)
 
-
-# FIX:  DeprecationWarning: The default date adapter is deprecated as of Python 3.12; see the sqlite3 documentation for suggested replacement recipes
-def adapt_datetime(ts):
-    pass
-
 def updateQHist(cur: sqlite3.Cursor, QID: int) -> None:
-    print("updatingQHIST")
     # TODO: Update: Date Taken and/or Completed (if Applicable)
+
     tempComp, tempCode, dateAttempted, tempNotes = userInput()
     print(tempComp, tempCode, dateAttempted, tempNotes)
+
 
     cmd = f"INSERT INTO QuestionHistory VALUES(?, ?, ?, ?, ?, ?)"
     cur.execute(cmd, (None, QID, tempComp, tempCode, dateAttempted, tempNotes))
@@ -89,7 +89,7 @@ def addQuestion(cur: sqlite3.Cursor, tableName: str, question: q) -> None:
         updateQHist(cur, question.ID)
         return
     
-    print("Adding Question to QuestionBank:")
+    # print("Adding Question to QuestionBank:")
     data = question.getData()
 
     placeholder = ', '.join(['?' for _ in range (len(data))])
@@ -176,8 +176,8 @@ def printTable(cur: sqlite3.Cursor, tableName: str) -> None:
     print(f"\n{tableName}:\n")
     print(header_format)
     print(separator)
-    #BUG: fix positions
 
+    #TODO:
     for item in items:
         if (opt == "QBNK"):
             print(row_format.format(item[0], item[1], item[2], item[3], item[4]))
@@ -186,15 +186,24 @@ def printTable(cur: sqlite3.Cursor, tableName: str) -> None:
 
 
 
-# FIX: Can't Test until Question Add for both tables is fixed
-# TODO: TEST printRow function, Add is currently fixed
-def printRow(cur: sqlite3.Cursor, tableName:str, id: int) -> None:
-    cmd = f"SELECT {id} FROM {tableName}"
-    cur.execute(cmd)
-    item = cur.fetchone()
-    print(item)
+#TODO: Add formatting
+'''
+searchValue: Row Value ("TwoSum", "Hard", Question_ID)
+attr: Col Name (QuestionID, Name, Complteted...)
+'''
+def printRow(cur: sqlite3.Cursor, tableName:str, searchValue , attr: str = "Question_ID") -> None:
+    cmd = f"SELECT *  FROM {tableName} WHERE {attr} = ?"
+    cur.execute(cmd, (searchValue,))
+
+    row = cur.fetchone()
+    if row:
+        print(row)
+    else:
+        print("No row found with this specified criteria")
+
 
 def printCol(cur: sqlite3.Cursor, tableName:str, id:int) -> None:
+    cmd = f"SELECT "
     pass
 
 # TABLE: "QuestionBank"
@@ -218,6 +227,7 @@ def getLatestSubmission():
     pass
 def getFullQuestionHistory():
     pass
+
 #TODO: implement redoquestion tracking
 # opt 1
 # Redo create column in history (REDO-date) with DateCompleted + timedelta(wk2)
@@ -248,21 +258,24 @@ def main():
                 "Question_ID INTEGER",
                 "Compelted BOOLEAN NOT NULL",
                 "Code TEXT",
-                "date_attempted DATETIME",
+                "date_attempted DATE",
                 "Notes TEXT",
                 "FOREIGN KEY (Question_ID) REFERENCES QuestionBank(Question_ID)"
                 ])
 
     printMasterSchema(cursor)
 
-    q1= q(0, "TwoSum", "Easy", "Arrays")
-    q2= q(1, "ThreeSum", "Medium", "LL")
+    q1= q(1, "TwoSum", "Easy", "Arrays")
+    q2= q(2, "ThreeSum", "Medium", "LL")
 
     addQuestion(cursor, "QuestionBank", q1)
     addQuestion(cursor, "QuestionBank", q2)
 
     printTable(cursor, "QuestionBank")
     printTable(cursor, "QuestionHistory")
+
+    printRow(cursor, "QuestionBank", 1)
+    printRow(cursor, "QuestionBank", "TwoSum", "Name")
 
     connection.commit()
     connection.close()
