@@ -1,17 +1,20 @@
 from os import sep, walk
 from re import search
+
 import sqlite3
-from sqlite3.dbapi2 import Row
-from typing import List, Tuple
+from typing import List, Optional, Tuple
 from datetime import  date
 
-# TODO: time attributes and loading history
-# TODO: History -> update history with new submission
-# TODO: History -> Link Question ID to History ID
-
-# TODO: PrintTable() compatibility with 'QustionHistory ' table
-# TODO: ALter Question -> History Prints -> loadHstory method 1/2
 # TODO: UI GENERAL IMPLEMETNATION -> Add Colors
+
+# TODO: ALter Question -> History Prints -> loadHstory method 1/2
+
+class colors:
+    HEADC = "\033[95m"
+    BLUE  = "\033[94m"
+    GREEN = "\033[92m"
+    RED   = "\033[93m"
+    ENDC  = "\033[0m"
 
 class q:
     def __init__(self, ID: int, Name: str, Difficulty: str, Type: str) -> None:
@@ -31,12 +34,8 @@ def createDatabase():
     con = sqlite3.connect("questions.db")
     return con
 
-
 def createTable(cur: sqlite3.Cursor, tableName : str, attr: List[str]) -> None:
     columns = ', '.join(attr)
-    # print("__Creating table__")
-    # print("__Creating table with:__")
-    # print(columns)
     cmd = f"CREATE TABLE IF NOT EXISTS {tableName}({columns})"
     cur.execute(cmd)
 
@@ -56,24 +55,76 @@ def convert_date(date_text):
 sqlite3.register_adapter(date, adapt_date)
 sqlite3.register_converter("DATE", convert_date)
 
-def userInput():
-    # TODO: Get user Input
-    # NOTE: by default dateAttempted to today()
-    # TODO: USER INPUT: "Did you attempt today? Y/N"
-    #       if 'N', Prompt datetime input
-    # NOTE: faking user inputs: completed, code, notes
+def histUI():
     dateAttempted = date.today()
-    print(f"Date Attempted:{dateAttempted}.")
-    tempComp = True
-    tempCode = "hello('World!')" #(optional)
-    tempNotes = "this shit was hard!"
 
-    return (tempComp, tempCode, dateAttempted, tempNotes)
+    Comp, Code, Notes = "", "", ""
+
+    Comp = input("Was this completed today? (Y/N) ").upper()
+    print(Comp)
+    todayCond = input("Did you attempt today? (Y/N) ").upper()
+    if todayCond == "N":
+        dateAttempted = input("What date did you attempt the question? (YYYY-MM-DD) ")
+        # TODO: Add date typechecking (reference old project)
+    Code = input("What was your submission? ") 
+    Notes = input("Any Notes? ")
+
+    return (Comp == "Y", Code, dateAttempted, Notes)
+
+
+def userInput(cursor):
+    # TODO: Get user Input
+    #NOTE: set continueFlag to False for manual testing
+    continueFlag = True
+    while continueFlag:
+        userOpt = input('''
+        (1) Add question/attempt
+        (2) Check retry schedule
+        (3) Remove question
+        (4) Alter question
+        (5) Print Tables
+        (6) Exit
+        ''')
+
+        if userOpt == '6':
+            continueFlag = False
+
+        elif userOpt == '1':
+            # QID = input("Question ID? ")
+            # QN = input("Question Name? ")
+            # QD = input("Question Difficulty? ")
+            # QT = input("Question Type? (LL, Arrays, Stacks, Trees, etc.)" ).upper()
+
+            QID =  "1"
+            QN = "TwoSum"
+            QD = "Easy"
+            QT = "Arrays"
+            question = q(int(QID), QN, QD, QT)
+            addQuestion(cursor, "QuestionBank", question) 
+
+        # alter question
+
+        # retry
+        
+        # remove
+
+        # print data
+
+        # exit
+
+    # NOTE: Uncomment For manual testing
+    # tempComp = True
+    # tempCode = "hello('World!')" #(optional)
+    # tempNotes = "this shit was hard!"
+    # return (tempComp, tempCode, dateAttempted, tempNotes)
+
+    # Might need to move in conditional
 
 def updateQHist(cur: sqlite3.Cursor, QID: int) -> None:
     # TODO: Update: Date Taken and/or Completed (if Applicable)
 
-    tempComp, tempCode, dateAttempted, tempNotes = userInput()
+    # TODO: change function call, must be called at main and passed as parameter
+    tempComp, tempCode, dateAttempted, tempNotes = histUI()
     print(tempComp, tempCode, dateAttempted, tempNotes)
 
 
@@ -117,8 +168,6 @@ def alterQuestion():
 
     pass
 
-
-
 def printMasterSchema(cur: sqlite3.Cursor, attr: str = "name")-> None:
     """
     printMasterSchema prints all table [attr] contained in the Schema Table
@@ -144,14 +193,23 @@ def printHelper(headers, widths) -> Tuple[str, str, str]:
     for i in range(len(headers)):
         header_format += f"{headers[i]:<{widths[i]}} | "
         row_format += f"{{:<{widths[i]}}} | "
+
     header_format = header_format[:-2]
+
     row_format = row_format[:-2]
 
     return (header_format, separator, row_format)
 
 
+#TODO: Cutoff long entries with '...'
 #TODO: Add colors
-#TODO: Check "QuestionHistory" table compatability
+
+# FIX:
+def checkLen_helper(item: str, maxLen: int):
+    if len(item) == maxLen:
+        item = item[:maxLen-3]
+    pass
+
 def printTable(cur: sqlite3.Cursor, tableName: str) -> None:
     headers = []
     widths = []
@@ -173,11 +231,11 @@ def printTable(cur: sqlite3.Cursor, tableName: str) -> None:
     cur.execute(cmd)
     items = cur.fetchall()
 
-    print(f"\n{tableName}:\n")
-    print(header_format)
-    print(separator)
+    print(colors.HEADC + f"\n{tableName}:\n" + colors.ENDC)
+    print(colors.BLUE + header_format )
+    print(separator + colors.ENDC)
 
-    #TODO:
+    #TODO: make more 'angelic'
     for item in items:
         if (opt == "QBNK"):
             print(row_format.format(item[0], item[1], item[2], item[3], item[4]))
@@ -195,6 +253,7 @@ def printRow(cur: sqlite3.Cursor, tableName:str, searchValue , attr: str = "Ques
     cmd = f"SELECT *  FROM {tableName} WHERE {attr} = ?"
     cur.execute(cmd, (searchValue,))
 
+    
     row = cur.fetchone()
     if row:
         print(row)
@@ -205,22 +264,6 @@ def printRow(cur: sqlite3.Cursor, tableName:str, searchValue , attr: str = "Ques
 def printCol(cur: sqlite3.Cursor, tableName:str, id:int) -> None:
     cmd = f"SELECT "
     pass
-
-# TABLE: "QuestionBank"
-# Question_ID INTEGER PRIMARY KEY
-# Name TEXT NOT NULL
-# Difficulty TEXT NOT NULL
-# QuestionType TEXT NOT NULL
-
-# TABLE: QuestionHistory
-# History_ID INTEGER PRIMARY KEY AUTOINCREMENT
-# Question_ID INTEGER FOREIGN KEY
-# Compelted BOOLEAN NOT NULL
-# Attempt_Number INTEGER
-# Code TEXT 
-# date_attempted DATETIME 
-# Notes TEXT 
-# FOREIGN KEY (Question_ID) REFERENCES QuestionBank(Question_ID)
 
 #TODO: search for QID in QHIST and return LATES
 def getLatestSubmission():
@@ -237,6 +280,7 @@ def getFullQuestionHistory():
 # Call getlastest submission() + timedelta(two weeks)
 # Return value will be the date of submission + 2 weeks
 # if return value == time.today() send notification
+
 # TODO: 
 # setup daily scheduler tha runs REDOQUESTION Tracking once a day
 
@@ -265,11 +309,13 @@ def main():
 
     printMasterSchema(cursor)
 
-    q1= q(1, "TwoSum", "Easy", "Arrays")
-    q2= q(2, "ThreeSum", "Medium", "LL")
+    # TODO: ADD UI HERE:
 
-    addQuestion(cursor, "QuestionBank", q1)
-    addQuestion(cursor, "QuestionBank", q2)
+    userInput(cursor)
+    # q1= q(1, "TwoSum", "Easy", "Arrays")
+    # q2= q(2, "ThreeSum", "Medium", "LL")
+
+    # addQuestion(cursor, "QuestionBank", question)
 
     printTable(cursor, "QuestionBank")
     printTable(cursor, "QuestionHistory")
