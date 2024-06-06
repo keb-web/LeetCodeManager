@@ -62,7 +62,7 @@ def histUI():
 
     Comp = input("Was this completed today? (Y/N) ").upper()
     print(Comp)
-    todayCond = input("Did you attempt today? (Y/N) ").upper()
+    todayCond = input("Did you attempt today? (Y/N)").upper()
     if todayCond == "N":
         dateAttempted = input("What date did you attempt the question? (YYYY-MM-DD) ")
         # TODO: Add date typechecking (reference old project)
