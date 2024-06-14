@@ -39,16 +39,16 @@ FUTURE PLANS:
 
 ## Current Project Setup
 will most def be changed in future..
--/ /assets      -> .svg pictures depictiing DB Table Relationships
--/ /LCM         -> python3 venv (Ignored in .gitignore)
--/ /.gitignore  -> ignoring shi
--/ /aioDB.py    -> Asyncronous implementation of (depreciated) 'database.py'
--/ /bot.py      -> Discord bot implemenation (Commands, I/O, Help Menu, Connections)
--/ /config.py   -> tokens (hidden in .gitignore)
--/ /database.py -> Old implementation of CLI LCM
--/ /README.md   -> this file
--/󰈙 /requirements.txt -> run `pip install -r requirements.txt` to install venv packages
--/ /schema.py   -> Const for 'aioDB' separated for readibility
+- / /assets      -> .svg pictures depictiing DB Table Relationships
+- / /LCM         -> python3 venv (Ignored in .gitignore)
+- / /.gitignore  -> ignoring shi
+- / /aioDB.py    -> Asyncronous implementation of (depreciated) 'database.py'
+- / /bot.py      -> Discord bot implemenation (Commands, I/O, Help Menu, Connections)
+- / /config.py   -> tokens (hidden in .gitignore)
+- / /database.py -> Old implementation of CLI LCM
+- / /README.md   -> this file
+- /󰈙 /requirements.txt -> run `pip install -r requirements.txt` to install venv packages
+- / /schema.py   -> Const for 'aioDB' separated for readibility
 
 ___
 
