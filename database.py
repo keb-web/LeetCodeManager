@@ -1,3 +1,6 @@
+# BUG: DEPRECIATED
+
+from logging import PlaceHolder
 from os import sep, walk
 from re import search
 
@@ -142,7 +145,6 @@ def addQuestion(cur: sqlite3.Cursor, tableName: str, question: q) -> None:
     
     # print("Adding Question to QuestionBank:")
     data = question.getData()
-
     placeholder = ', '.join(['?' for _ in range (len(data))])
     cmd = f"INSERT INTO {tableName} VALUES({placeholder})"
     cur.execute(cmd, data)
