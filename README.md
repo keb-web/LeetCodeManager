@@ -1,7 +1,7 @@
 ## Project
 Discord bot that logs and send reminders of submitted LeetCode Questions & their progression history\
-Isplemented in python with discord.py, aiosqlite, and (eventually) JS/REACT/DJANGO\
-s*Main Purpose:** Practice and learn relational databases for upcoming database class in the Fall\
+Implemented in python with discord.py, aiosqlite, and (eventually) JS/REACT/DJANGO\
+**Main Purpose:** Practice and learn relational databases for upcoming database class in the Fall\
 
 ## Dev Notes:
 Small scale bot as it uses sqlite. Program can be expanded on for mass use with ... (MongoDB, mySQL??)
