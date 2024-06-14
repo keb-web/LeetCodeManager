@@ -7,15 +7,15 @@ Implemented in python with discord.py, aiosqlite, and (eventually) JS/REACT/DJAN
 Small scale bot as it uses sqlite. Program can be expanded on for mass use with ... (MongoDB, mySQL??)
 
 - TODO:
-    -[x] implemnent relational tables with SQL lite
-    -[-] implemnent async functionality with aiosqlite
-    -[] Connect to Discord.py Commands
-    -[] Scheduling / Notifications
-    -[] implement basic frontend (Typescript practice)
+    - [x] implemnent relational tables with SQL lite
+    - [-] implemnent async functionality with aiosqlite
+    - [] Connect to Discord.py Commands
+    - [] Scheduling / Notifications
+    - [] implement basic frontend (Typescript practice)
 
 - planned features
-    -[-] History Logging
-    -[] Reminders&interaction via Discord bot
+    - [-] History Logging
+    - [] Reminders&interaction via Discord bot
     -[] Basic Front-end
         - gotta figure out how to link everything togetha first
 
@@ -39,16 +39,16 @@ FUTURE PLANS:
 
 ## Current Project Setup
 will most def be changed in future..
-/ /assets      -> .svg pictures depictiing DB Table Relationships
-/ /LCM         -> python3 venv (Ignored in .gitignore)
-/ /.gitignore  -> ignoring shi
-/ /aioDB.py    -> Asyncronous implementation of (depreciated) 'database.py'
-/ /bot.py      -> Discord bot implemenation (Commands, I/O, Help Menu, Connections)
-/ /config.py   -> tokens (hidden in .gitignore)
-/ /database.py -> Old implementation of CLI LCM
-/ /README.md   -> this file
-/󰈙 /requirements.txt -> run `pip install -r requirements.txt` to install venv packages
-/ /schema.py   -> Const for 'aioDB' separated for readibility
+-/ /assets      -> .svg pictures depictiing DB Table Relationships
+-/ /LCM         -> python3 venv (Ignored in .gitignore)
+-/ /.gitignore  -> ignoring shi
+-/ /aioDB.py    -> Asyncronous implementation of (depreciated) 'database.py'
+-/ /bot.py      -> Discord bot implemenation (Commands, I/O, Help Menu, Connections)
+-/ /config.py   -> tokens (hidden in .gitignore)
+-/ /database.py -> Old implementation of CLI LCM
+-/ /README.md   -> this file
+-/󰈙 /requirements.txt -> run `pip install -r requirements.txt` to install venv packages
+-/ /schema.py   -> Const for 'aioDB' separated for readibility
 
 ___
 
