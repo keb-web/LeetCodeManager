@@ -2,17 +2,121 @@ import aiosqlite
 import asyncio
 #TODO :remove os later
 import os
-from datetime import date, timedelta
-from schema import QUESTION_BANK, QUESTION_HISTORY, USERS, USER_ID, USER_ID2
+from datetime import date, datetime, timedelta
+from schema import QUESTION_BANK, QUESTION_HISTORY, USERS, RETRY_TIME_WINDOW, USER_ID, USER_ID2
 
-async def getUpcoming():
+#TODO: 
+# 1. Adjust tables
+#    - [x] Retry Boolean column --> not needed, just check if completed = false
+#    - [x] User retry_window column
+#    - [ ] Retry (dynamically updated) date column  --> update daily before notify()
+# 2. Finish up Function Implementation
+#       optional Functions
+#           -> Update USERS Retry_Window column
+#           -> 
+# 3. Test Functions and Debug
+# 4. Add Docstrings
+
+
+#TODO: discord.py cmd functions
+#retryNotification() -> send notificaiton to User with User_ID
+#adjustRetryWindow() -> default = 2 days, allow for user to adjust
+#                    -> Requires additional column of User Table
+
+#TODO:
+#TEST:
+async def updateRetryDate():
     pass
 
-async def todo():
-    pass
+
+#TODO:
+#TEST:
+async def getRetryWindow(UID):
+    """
+    return User's Retry_Window Value (INTEGER / timedelta?? )
+    """
+    async with aiosqlite.connect("questions.db") as db:
+        async with db.execute("""
+        SELECT Retry_Window
+        FROM Users
+        WHERE
+            User_ID = ?
+        """,(UID,)) as cursor:
+            value = await cursor.fetchone()
+            if value:
+                # retry_window = timedelta(seconds = value[0])
+                retry_window = value[0]
+                print(f"Retry_Window for user {UID}: {retry_window}")
+                return retry_window
+            else:
+                print(f"No Retry_Window found for user {UID}.")
+                return None
+#TODO:
+#TEST:
+async def getTodoToday(UID):
+    """
+    return data row if date.today() = Uncompleted Questionions + RETRY_TIME_WINDOW
+    Returns Questions that are due today
+
+    """
+    currentDay = datetime.combine(date.today(), datetime.min.time())
+    async with aiosqlite.connect("questions.db") as db:
+        async with db.execute("""
+            SELECT *
+            FROM QuestionBank
+            WHERE Question_ID IN (
+                SELECT Question_ID
+                FROM QuestionHistory
+                WHERE User_ID = ?
+                AND retry_date = ?
+                AND Completed = 0
+            )
+        """,(UID, currentDay)) as cursor:
+            return await cursor.fetchall()
+
+    #TODO: in discord.py
+    # print selected rows (Using discord client)
+
+
 
 #TEST:
-async def userStats(UID):
+#TODO: Add feature where questions upcoming array is organized by retry date (closest upcoming)
+async def getUpcoming(UID):
+    """
+    Returns an unsorted list of Upcoming Questions to be Redone
+    :param UID: User_ID
+    """
+    currentDay = datetime.combine(date.today(), datetime.min.time())
+    async with aiosqlite.connect("questions.db") as db:
+        
+        # #NOTE: Remove [[Helper Print Function]]
+        # async with db.execute("""SELECT History_ID retry_date FROM QuestionHistory WHERE User_ID = ? AND retry_date >= ? AND Completed = 0""",(UID, currentDay)) as cursor:
+        #     value = await cursor.fetchall()
+        #     for v in value:
+        #         print(v)
+        #
+
+        #NOTE: Might have to redo when retry_date is dynamically updated
+        #NOTE: Log difference between '=' and 'IN' for the subquery "WHERE QID IN ..."
+        async with db.execute("""
+        SELECT *
+        FROM QuestionBank
+        WHERE Question_ID IN (
+            SELECT Question_ID
+            FROM QuestionHistory
+            WHERE User_ID = ?
+            AND retry_date >= ?
+            AND Completed = 0
+        )
+        """, (UID, currentDay)) as cursor:
+            return await cursor.fetchall()
+
+#Add get User Retry_Window
+async def getUserStats(UID):
+    """
+    getter to display User's completed and attempted scores
+    :param UID: User_ID
+    """
     completed = -1
     attempted= -1
     async with aiosqlite.connect("questions.db") as db:
@@ -31,6 +135,7 @@ async def userStats(UID):
         
         
 
+#Add User Retry_Window Update
 async def updateUser(UID):
     """
     Updates Total Attempted and Total Complted
@@ -48,12 +153,14 @@ async def updateUser(UID):
         """,(UID,)) as cursor:
             newTotal = await cursor.fetchone()
             newTotal = newTotal[0] if newTotal else 0
-            print(f"newTotal:{newTotal}")
+            print(f"newTotal: {newTotal}")
 
         #determine total questions completed from QuestionHistory
         #   Count total # of rows that..
         #   Are User_ID's latest attempt for EACH question
         #   Only count if they are the latest and completed
+
+        #NOTE: Learn Partition
         async with db.execute("""
         SELECT COUNT(*)
         FROM (
@@ -65,7 +172,7 @@ async def updateUser(UID):
         """,(UID,)) as cursor:
             newCompleted = await cursor.fetchone()
             newCompleted = newCompleted[0] if newCompleted else 0
-            print(f"newCompleted{newCompleted}")
+            print(f"newCompleted: {newCompleted}")
 
         #Update Users row, User_ID
         await db.execute("""
@@ -84,46 +191,52 @@ async def updateUser(UID):
             for r in rows:
                 print(r)
 
-#TEST:
-async def updateQuestion(QID, UID):
-    # Change Question
+#TODO: Sync with discord client input
+async def updateQuestion(UID, QID):
+    """
 
-    # TODO: Get changes from discord command
-    # Temp change variables NOTE: delete later!!
+    """
     newName = "newName"
     newDiff = "newDiff"
     newType = "newType"
 
-    async with aiosqlite.connect("database.db") as db:
+    async with aiosqlite.connect("questions.db") as db:
         await db.execute("""
         UPDATE QuestionBank
         SET Name = ?,
-        Difficulty = ?,
-        QuestionTyppe = ?
+            Difficulty = ?,
+            QuestionType = ?
         WHERE User_ID = ? AND Question_ID = ?
         """,(newName, newDiff, newType, UID, QID))
         await db.commit()
 
-#TEST:
+#TODO: Sync with discord client input
 async def updateSubmission(UID, QID):
-    # TODO: Get changes from discord command
+    """
+    Updates latests submission in QuestionHistory based on QuestionID, UserID, and Latest value for date_attempted
+    :param UID: User_ID
+    :param QID: Question_ID
+    """
     # Temp change variables NOTE: delete later!!
-
     newComp = True
     newCode = "updoot"
     newDate = "updoot"
     newNotes = "updoot"
 
-    async with aiosqlite.connect("database.db") as db:
+    async with aiosqlite.connect("questions.db") as db:
         await db.execute("""
         UPDATE QuestionHistory
         SET Completed = ?,
             Code = ?,
             date_attempted = ?,
             Notes = ?
-        WHERE User_ID = ? AND Question_ID = ?
-        ORDER BY date_attempted DESC
-        LIMIT 1
+        WHERE History_ID = (
+            SELECT History_ID
+            FROM QuestionHistory
+            WHERE User_ID = ? AND Question_ID = ?
+            ORDER BY date_attempted DESC
+            LIMIT 1
+        )
         """, (newComp, newCode, newDate, newNotes, UID, QID))
 
         await db.commit()
@@ -180,10 +293,8 @@ async def removeQuestion(value, userID):
         #     for r in rows:
         #         print(r)
         
-#remove latest attempt
-#remove from history until no more, then remove question entirely
-#TEST: RemoveLatest if there is none
-async def removeLatestSubmission(value, userID):
+
+async def removeLatestSubmission(UID, QID):
     """
     Removes latest submission from questionHistory based on 'date_attempted'
     Removes question from questionbank if no more submissions exist
@@ -197,21 +308,21 @@ async def removeLatestSubmission(value, userID):
         DELETE FROM QuestionHistory 
         WHERE date_attempted = (
         SELECT MAX(date_attempted) FROM QuestionHistory
-        WHERE Question_ID LIKE ?
-        AND User_ID LIKE ?
+        WHERE User_ID LIKE ?
+        AND Question_ID LIKE ?
         LIMIT 1
         )
-        """, (value, userID))
+        """, (UID, QID))
 
         # remove question from questionbank if no history
         await db.execute(f"""
         DELETE FROM QuestionBank 
         WHERE NOT EXISTS (
         SELECT * FROM QuestionHistory
-        WHERE Question_ID LIKE ?
-        AND User_ID LIKE ?
+        WHERE User_ID LIKE ?
+        AND Question_ID LIKE ?
         )
-        """, (value, userID))
+        """, (UID, QID))
 
         await db.commit()
 
@@ -231,38 +342,50 @@ async def removeLatestSubmission(value, userID):
 
 # NOTE: when initially inserting into questionbank, also insert fisrt submission into QHist
 async def insertTable(type, data):
-    print("Inserting...")
     async with aiosqlite.connect("questions.db") as db:
         match type:
             case "QuestionBank":
                 await db.execute("INSERT INTO QuestionBank (Question_ID, Name, Difficulty, QuestionType, User_ID) VALUES ( ?, ?, ?, ?, ?)", (data))
             case "QuestionHistory":
-                await db.execute("INSERT INTO QuestionHistory ( Question_ID, Completed, Code, Date_Attempted, Notes, User_ID) VALUES ( ?, ?, ?, ?, ?, ?)", (data))
+                #insert into tablehistory only if the question existss in questionBank
+                #TODO: figure out how this works
+                #TODO: If not exist, notify user in discord
+                await db.execute("""INSERT INTO QuestionHistory ( Question_ID, Completed, Code, date_attempted, retry_date, Notes, User_ID)
+                                    SELECT ?, ?, ?, ?, ?, ?, ?
+                                    WHERE EXISTS (
+                                        SELECT 1 FROM QuestionBank 
+                                        WHERE Question_ID = ?
+                                        AND User_ID = ? 
+                                    )
+                                 """, (*data, data[0], data[6]))
             case "Users":
-                await db.execute("INSERT OR IGNORE INTO Users (User_ID, Total_Completed, Total_Attempted) VALUES (?, ?, ?)", (data))
+                #Insert User only if it doesn't exist yet
+                await db.execute("INSERT OR IGNORE INTO Users (User_ID, Total_Completed, Total_Attempted, Retry_Window) VALUES (?, ?, ?, ?)", (data))
             case _:
                 print("No matching table to insert")
                 return
         await db.commit()
 
-        #Query & Print  NOTE: Remove later
-        # print("\tbank")
+        # # Query & Print  NOTE: Remove later
+        # print("bank:")
         # async with db.execute(f"SELECT * FROM QuestionBank") as cursor:
         #     rows = await cursor.fetchall()
         #     for r in rows:
         #         print(r)
-        # print("\thist")
+        #     print("---")
+        # print("hist:")
         # async with db.execute(f"SELECT * FROM QuestionHistory") as cursor:
         #     rows = await cursor.fetchall()
         #     for r in rows:
         #         print(r)
-        # print("\tUsers")
+        #     print("---")
+        # print("Users:")
         # async with db.execute(f"SELECT * FROM Users") as cursor:
         #     rows = await cursor.fetchall()
         #     for r in rows:
         #         print(r)
+        #     print("---")
 
-        
 #NOTE: for testing, will be linked with discord.py when functional
 async def main():
     #Creating tables
@@ -272,49 +395,58 @@ async def main():
         await db.execute(USERS)
         await db.commit()
 
-    #Question_ID, Name, Difficulty, QuestionType, User_ID
-    question_data1 = (1, "TwoSum", "E", "Array", USER_ID)
-    question_data2 = (2, "ThreeSum", "M", "Array", USER_ID)
+    #TEST:
+    #NOTE: Question
 
-    # History_ID, Question_ID, Completed, Code, Date_Attempted, Notes
-    qHist_data1 = ( 1, False, "code goes here", date.today(), "This shit was hard!", USER_ID )
-    qHist_data2 = ( 1, False, "code goes here", date.today() + timedelta(days=1), "This shit was hard-ish!", USER_ID )
-    qHist_data3 = ( 1, False, "code goes here", date.today() + timedelta(days=2), "This shit was medium-hard!", USER_ID )
-    qHist_data4 = ( 1, True, "code goes here", date.today() + timedelta(days=3), "This shit was easy!", USER_ID )
+    # QID, NAME, DIFF, TYPE, UID
+    q1 = (1, "TWOSUM", "EASY", "ARRAY", USER_ID)
+    q2 = (2, "THREESUM", "MED", "ARRAY", USER_ID2)
+    # q3 = (3, "FOURSUM", "HARD", "ARRAY", USER_ID)
+    await insertTable("QuestionBank", q1)
+    await insertTable("QuestionBank", q2)
+    # await insertTable("QuestionBank", q3)
 
-    qHist_data5 = ( 2, False, "code goes here", date.today() + timedelta(days=3), "idk :(", USER_ID )
-    qHist_data6 = ( 2, True, "code goes here", date.today() + timedelta(days=4), "idk :(", USER_ID )
-    qHist_data7 = ( 2, True, "updated code goes here", date.today() + timedelta(days=5), "more optimized solution", USER_ID )
-    qHist_data8 = ( 2, False, "i forgot...", date.today() + timedelta(days=6), "forgot solution", USER_ID )
+    #NOTE: Users
+    # (User_ID, Total_Completed, Total_Attempted)
+    user_data1 = (USER_ID, 1, 1, int( RETRY_TIME_WINDOW.total_seconds() ) )
+    print(int(RETRY_TIME_WINDOW.total_seconds()))
+    await insertTable("Users", user_data1)
+    user_data2 = (USER_ID2, 1, 1, int(RETRY_TIME_WINDOW.total_seconds()) )
+    await insertTable("Users", user_data2, )
 
-    #(User_ID, Total_Completed, Total_Attempted)
-    user_data1 = (USER_ID, 1, 1)
-    user_data2 = (USER_ID2, 1, 1)
+    #NOTE: Submission History
+    # QID, COMP, CODE, DATE, RETRY DATE, NOTES, UID
 
-    await insertTable( "QuestionBank", question_data1)
-    await insertTable( "QuestionBank", question_data2)
+    s1time = datetime.today() - timedelta(days = 3)
+    s3time = datetime.today() + timedelta(days = 3)
+    s4time = datetime.today() + timedelta(days = 4)
 
-    await insertTable( "QuestionHistory", qHist_data1)
-    await insertTable( "QuestionHistory", qHist_data2)
-    await insertTable( "QuestionHistory", qHist_data3)
-    await insertTable( "QuestionHistory", qHist_data4)
+    s1 = (1, False, "None", s1time, s1time + RETRY_TIME_WINDOW, "Notes", USER_ID)
+    s2 = (1, False, "None", s4time, s4time + RETRY_TIME_WINDOW, "Notes", USER_ID)
 
-    await insertTable( "QuestionHistory", qHist_data5)
-    await insertTable( "QuestionHistory", qHist_data6)
-    await insertTable( "QuestionHistory", qHist_data7)
-    await insertTable( "QuestionHistory", qHist_data8)
+    s3 = (2, False, "None", s1time, s1time + RETRY_TIME_WINDOW, "Notes", USER_ID2)
+    s4 = (2, False, "None", s3time, s3time + RETRY_TIME_WINDOW, "Notes", USER_ID2)
 
-    await insertTable( "Users", user_data1)
-    await insertTable( "Users", user_data2)
+    await insertTable("QuestionHistory", s1)
+    await insertTable("QuestionHistory", s2)
+    await insertTable("QuestionHistory", s3)
+    await insertTable("QuestionHistory", s4)
 
-    await updateUser(USER_ID)
+    #NOTE: 
+    # [OTHER FUNCTIONS]
+    # agetRetryWindow(USER_ID)
+    # await getUpcoming(USER_ID2)
 
-    print("printing all tables")
+
+
+    print("----  printing all tables  ----")
     await printAllTables()
 
-    # temprorary -> remove db for testing
+    #NOTE: temprorary -> remove db for testingtemp
     os.remove("questions.db")
 
-
+#BUG: Question History Insertion without exiting QID
+#TODO : IF USER NOT FOUND AT INSERTION, Create and insert user with USERID
+#NOTE: Initial QuestionLOG must be accompanied with initial submission log
 
 asyncio.run(main())
