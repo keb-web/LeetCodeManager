@@ -1,28 +1,32 @@
-## Project
+## LCM Project
+**Main Purpose:** Practice and learn relational databases for upcoming database class in the Fall\
 Discord bot that logs and send reminders of submitted LeetCode Questions & their progression history\
 Implemented in python with discord.py, aiosqlite, and (eventually) JS/REACT/DJANGO\
-**Main Purpose:** Practice and learn relational databases for upcoming database class in the Fall\
 
 ## Dev Notes:
+Discord Branch -> WIP implementing Discord Functionality
+Main Branch -> Original version using OOP and CLI
+
 Small scale bot as it uses sqlite. Program can be expanded on for mass use with ... (MongoDB, mySQL??)
 
 - TODO:
     - [x] implemnent relational tables with SQL lite
-    - [-] implemnent async functionality with aiosqlite
+    - [x] implemnent async functionality with aiosqlite
     - [] Connect to Discord.py Commands
     - [] Scheduling / Notifications
     - [] implement basic frontend (Typescript practice)
+    - [] Add Extra Features
 
 - planned features
-    - [-] History Logging
-    - [] Reminders&interaction via Discord bot
-    -[] Basic Front-end
+    - [>] History Logging
+    - [] Reminders & interaction via Discord bot
+    - [] Basic Front-end
         - gotta figure out how to link everything togetha first
 
-- Misc.
-    Show:
+- Misc Ideas
+    Show by:
     - completed
-    - Upcoming
+    - Upcoming -- Done
 
     filter by:
     - Completed / Not Competed
@@ -31,14 +35,12 @@ Small scale bot as it uses sqlite. Program can be expanded on for mass use with 
     - Number of Attempts
     - Question Type
 
-
 FUTURE PLANS:
-- [] Add tables (mySQL?) instead of using dictionaries. (good practice for fall class)
+- [x] Add tables (mySQL?) instead of using dictionaries. (good practice for fall class)
 - [] Convert to typescript (good practice) and implement with tsamantanis/leetcode-api
 - [] Fronted? (svelete?) [lowest-priority]
 
-## Current Project Setup
-will most def be changed in future..
+## Project Setup
 - / /assets      -> .svg pictures depictiing DB Table Relationships
 - / /LCM         -> python3 venv (Ignored in .gitignore)
 - / /.gitignore  -> ignoring shi
@@ -51,14 +53,11 @@ will most def be changed in future..
 - / /schema.py   -> Const for 'aioDB' separated for readibility
 
 ___
-
-### NEEDS TO BE UPDATED
-Database Diagram (Idk if its accurate tbh...)
-!["Database Diagram"](assets/LCMv2.svg)
-
+!["Database Diagram"](assets/LCMv3.svg)
 ---
 ## Obsidian notes:
 WIP
 
 ---
 ## Project Reflection:
+WIP
