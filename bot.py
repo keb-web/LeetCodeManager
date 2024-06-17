@@ -96,6 +96,7 @@ async def cmd_Todo():
     pass
 
 # ?All
-# async def DisplayDB(ctx):
+async def DisplayDB(ctx):
+    pass
 
 bot.run(BOT_TOKEN)
