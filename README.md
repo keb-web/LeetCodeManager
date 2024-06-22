@@ -12,10 +12,37 @@ Small scale bot as it uses sqlite. Program can be expanded on for mass use with 
 - TODO:
     - [x] implemnent relational tables with SQL lite
     - [x] implemnent async functionality with aiosqlite
-    - [] Connect to Discord.py Commands
-    - [] Scheduling / Notifications
-    - [] implement basic frontend (Typescript practice)
-    - [] Add Extra Features
+    - [x] Add user (doesn't need additional input)
+    - [x] CheckExisting
+    - [x] Reference User RetryWindow Column
+    - [x] Incorpodrate NOTES and CODE strings in add submission
+    - [>] neaten up and incorporate CheckFormatting() functions
+        -> stil gotta clean em
+    - [>] Connect to Discord.py Commands
+        - [x] Update Retry Window Column (updateRetryDate())
+        - [>] Add Submission functions
+            - [] reference timedelta from Users Column
+        - [>] Update Help Menu
+        - [>] List Question Types
+            -> Stil gotta add all quesiton types
+        - ***[>] Show Tables Commands / Display Questions
+            -[] Format by QID / Completed / Upcoming / TODO today
+                -> ~~?getupcoming~~, ~~?todo~~, ?all, ?completed, ?show <QID>
+        - [] update/delete question
+        - [] Update NOTES AND CODE Columns in User function
+    - [>] Scheduling System
+    - [] Check if Question attributes are all added to tables as .upper
+    - [ ] make ?addSubmission to take a paramater of QID?
+    - [] Notification System
+    - [] Organize: Sperate functions into different files 
+        - AIODB, BOT, HELPER, CONST, MSC
+    - [] Testing
+    - [] Extra Features?
+        - [] DM'S only implementation???
+        - [] Character Limitation for NOTES AND CODE
+        - [] implement basic frontend (Typescript practice)
+        - [] Implement ON_COMMAND_ERROR
+        - [] link QID to leetcode API for consistent question entries
 
 - planned features
     - [>] History Logging
@@ -23,7 +50,7 @@ Small scale bot as it uses sqlite. Program can be expanded on for mass use with 
     - [] Basic Front-end
         - gotta figure out how to link everything togetha first
 
-- Misc Ideas
+- Misc Ideas and Features
     Show by:
     - completed
     - Upcoming -- Done
