@@ -16,23 +16,32 @@ Small scale bot as it uses sqlite. Program can be expanded on for mass use with 
     - [x] CheckExisting
     - [x] Reference User RetryWindow Column
     - [x] Incorpodrate NOTES and CODE strings in add submission
+
+    - [] **BUG: getters not getting user-specific rows**
+
     - [>] neaten up and incorporate CheckFormatting() functions
         -> stil gotta clean em
     - [>] Connect to Discord.py Commands
         - [x] Update Retry Window Column (updateRetryDate())
         - [>] Add Submission functions
-            - [] reference timedelta from Users Column
-        - [>] Update Help Menu
+            - [>] reference timedelta from Users Column
         - [>] List Question Types
             -> Stil gotta add all quesiton types
         - ***[>] Show Tables Commands / Display Questions
-            -[] Format by QID / Completed / Upcoming / TODO today
-                -> ~~?getupcoming~~, ~~?todo~~, ?all, ?completed, ?show <QID>
-        - [] update/delete question
+            -[x] Format by QID / Completed / Upcoming / TODO today
+                -> ~~?getupcoming~~, ~~?todo~~, ,~~?completed~~ , ~~?show <QID>~~
+        - [x] reformat ?listTypes
+        - [x] update question
+        - [] delete question
         - [] Update NOTES AND CODE Columns in User function
     - [>] Scheduling System
+        - [] apply fix for when User doesn't complete all todos due that day 
+            -> Add to next day
+            -> Notify again Nearing end of day ( 8pm? )
+
+    - [>] Update Help Menu
     - [] Check if Question attributes are all added to tables as .upper
-    - [ ] make ?addSubmission to take a paramater of QID?
+    - [] make ?addSubmission to take a paramater of QID?
     - [] Notification System
     - [] Organize: Sperate functions into different files 
         - AIODB, BOT, HELPER, CONST, MSC
@@ -43,6 +52,8 @@ Small scale bot as it uses sqlite. Program can be expanded on for mass use with 
         - [] implement basic frontend (Typescript practice)
         - [] Implement ON_COMMAND_ERROR
         - [] link QID to leetcode API for consistent question entries
+    - [] -> extra row in history table that increments for each user. Currently it increments no matter what user. see ?history
+    - [] -> NOTES AND CODE. Better formatting? Syntax highlighting. Python lsp throws lil buggy buy error
 
 - planned features
     - [>] History Logging
