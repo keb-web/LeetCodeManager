@@ -15,7 +15,6 @@ CREATE TABLE IF NOT EXISTS QuestionBank (
 )
 """
 
-#DATETIME instead of DATE
 QUESTION_HISTORY = """
 CREATE TABLE IF NOT EXISTS QuestionHistory (
     History_ID INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -31,7 +30,6 @@ CREATE TABLE IF NOT EXISTS QuestionHistory (
 )
 """
 
-#TODO: Future feature: Allow for users to adjust RETRY_TIME_WINDOW with a new row stored in "Users" Table
 USERS = """
 CREATE TABLE IF NOT EXISTS Users (
     User_ID INTEGER PRIMARY KEY,
@@ -41,8 +39,8 @@ CREATE TABLE IF NOT EXISTS Users (
 )
 """
 
+#For testing purposes...
 USER_ID =  "800858"
 USER_ID2 = "12312"
-# ctx.author.id
 
 RETRY_TIME_WINDOW = timedelta(days=2)
