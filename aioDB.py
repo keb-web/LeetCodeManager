@@ -13,7 +13,6 @@ from schema import QUESTION_BANK, QUESTION_HISTORY, USERS, RETRY_TIME_WINDOW, US
 # 2. Finish up Function Implementation
 #       optional Functions
 #           -> Update USERS Retry_Window column
-#           -> 
 # 3. Test Functions and Debug
 # 4. Add Docstrings
 
@@ -23,8 +22,30 @@ from schema import QUESTION_BANK, QUESTION_HISTORY, USERS, RETRY_TIME_WINDOW, US
 #adjustRetryWindow() -> default = 2 days, allow for user to adjust
 #                    -> Requires additional column of User Table
 
+async def getRowValue(UID, HID, Value, TableName):
+    async with aiosqlite.connect("questions.db") as db:
+        cmd = f"SELECT {Value} FROM {TableName} WHERE History_ID = ? AND User_ID = ?"
+        # print(cmd)
+        async with db.execute(cmd, (HID, UID)) as cursor:
+            return (await cursor.fetchone())
+
+async def getCompleted(UID):
+    async with aiosqlite.connect("questions.db") as db:
+        async with db.execute("""
+        SELECT 
+            Question_ID, Name, Difficulty, QuestionType
+        FROM QuestionBank
+        WHERE Question_ID IN (
+            SELECT Question_ID
+            FROM QuestionHistory
+            WHERE User_ID = ?
+            AND Completed = 1
+        )
+        """, (UID,)) as cursor:
+            return (await cursor.fetchall())
+
 #TODO:
-#TEST:
+#TEST: connected
 async def updateRetryDate(UID, newRetry):
     async with aiosqlite.connect("questions.db") as db:
         await db.execute("""
@@ -37,7 +58,7 @@ async def updateRetryDate(UID, newRetry):
         await printAllTables()
 
 #TODO:
-#TEST:
+#TEST: connected
 async def getRetryWindow(UID):
     """
     return User's Retry_Window Value (INTEGER / timedelta?? )
@@ -68,7 +89,8 @@ async def getTodoToday(UID):
     currentDay = datetime.combine(date.today(), datetime.min.time())
     async with aiosqlite.connect("questions.db") as db:
         async with db.execute("""
-            SELECT *
+            SELECT
+                Question_ID, Name, Difficulty, QuestionType
             FROM QuestionBank
             WHERE Question_ID IN (
                 SELECT Question_ID
@@ -80,13 +102,28 @@ async def getTodoToday(UID):
         """,(UID, currentDay)) as cursor:
             return await cursor.fetchall()
 
+async def getSubmissions(UID, QID):
+    async with aiosqlite.connect("questions.db") as db:
+        async with db.execute("""
+        SELECT
+            History_ID, date_attempted, retry_date, Completed
+        FROM QuestionHistory
+        WHERE
+            User_ID = ? AND Question_ID = ? 
+        """, (UID, QID)) as cursor:
+            return await cursor.fetchall()
+
+
+
 #TEST:
 #TODO: Add feature where questions upcoming array is organized by retry date (closest upcoming)
+#BUG: Prints upcoming for ALL USERS
 async def getUpcoming(UID):
     """
     Returns an unsorted list of Upcoming Questions to be Redone
     :param UID: User_ID
     """
+    print(f"userid: {UID}")
     # Gets current day at midnight
     currentDay = datetime.combine(date.today(), datetime.min.time())
     async with aiosqlite.connect("questions.db") as db:
@@ -106,14 +143,11 @@ async def getUpcoming(UID):
         """, (UID, currentDay)) as cursor:
             return await cursor.fetchall()
 
-#Add get User Retry_Window
 async def getUserStats(UID):
     """
     getter to display User's completed and attempted scores
     :param UID: User_ID
     """
-    completed = -1
-    attempted= -1
     async with aiosqlite.connect("questions.db") as db:
         async with db.execute("""
             SELECT Total_Completed, Total_Attempted FROM Users
@@ -121,16 +155,12 @@ async def getUserStats(UID):
         """, (UID,)) as cursor:
             row = await cursor.fetchone()
             if row:
-                completed, attempted = row
+                attempted, completed= row
+                return (completed, attempted)
             else:
                 print("User ID not Found")
+                return (None, None)
 
-    #NOTE: will sende out as discord msg, or return for command
-    print(f"completed: {completed}, atttempted: {attempted}")
-        
-        
-
-#Add User Retry_Window Update
 async def updateUser(UID):
     """
     Updates Total Attempted and Total Complted
@@ -180,32 +210,23 @@ async def updateUser(UID):
 
         await db.commit()
 
-        #NOTE: remove later
-        async with db.execute(f"SELECT * FROM Users") as cursor:
-            rows = await cursor.fetchall()
-            for r in rows:
-                print(r)
+        # #NOTE: remove later
+        # async with db.execute(f"SELECT * FROM Users") as cursor:
+        #     rows = await cursor.fetchall()
+        #     for r in rows:
+        #         print(r)
 
-#TODO: Sync with discord client input
-async def updateQuestion(UID, QID):
+async def updateQuestion(UID, QID, attr, value):
     """
-
+    Updates user's Name/Diff/Type
     """
-    newName = "newName"
-    newDiff = "newDiff"
-    newType = "newType"
-
     async with aiosqlite.connect("questions.db") as db:
-        await db.execute("""
-        UPDATE QuestionBank
-        SET Name = ?,
-            Difficulty = ?,
-            QuestionType = ?
-        WHERE User_ID = ? AND Question_ID = ?
-        """,(newName, newDiff, newType, UID, QID))
+        prompt = f"UPDATE QuestionBank SET {attr} = ? WHERE User_ID = ? AND  Question_ID = ?"
+        await db.execute(prompt,(value, UID, QID))
         await db.commit()
 
 #TODO: Sync with discord client input
+# CONNECT
 async def updateSubmission(UID, QID):
     """
     Updates latests submission in QuestionHistory based on QuestionID, UserID, and Latest value for date_attempted
@@ -422,80 +443,57 @@ async def main():
         await db.execute(QUESTION_HISTORY)
         await db.execute(USERS)
         await db.commit()
-
-    # print("tables created")
+        print("tables created")
 
     #NOTE: Users
-
-    # # (User_ID, Total_Completed, Total_Attempted)
-    # user_data1 = (USER_ID, 1, 1, int( RETRY_TIME_WINDOW.total_seconds() ) )
-    # await insertTable("Users", user_data1)
-    # user_data2 = (USER_ID2, 1, 1, int(RETRY_TIME_WINDOW.total_seconds()) )
-    # await insertTable("Users", user_data2, )
-    #
-    # # #TEST:
-    # # #NOTE: Question
-    # # # # QID, NAME, DIFF, TYPE, UID
-    # # q1 = (1, "TWOSUM", "EASY", "ARRAY", USER_ID)
-    # # q4 = (1, "TWOSUM", "EASY", "ARRAY", USER_ID2)
-    # # q2 = (2, "THREESUM", "MED", "ARRAY", USER_ID)
-    # # q3 = (2, "THREESUM", "MED", "ARRAY", USER_ID2)
-    # #
-    # # # q3 = (3, "FOURSUM", "HARD", "ARRAY", USER_ID)
-    # await insertTable("QuestionBank", q1)
-    # await insertTable("QuestionBank", q1)
-    # await insertTable("QuestionBank", q2)
-    # await insertTable("QuestionBank", q2)
-    # await insertTable("QuestionBank", q3)
-    # await insertTable("QuestionBank", q3)
-    # await insertTable("QuestionBank", q4)
-    # # print(await checkExisting("QuestionBank", "Question_ID", "1"))
-    # # print(await checkExisting("QuestionBank", "Question_ID", "2"))
-    # # print(await checkExisting("QuestionBank", "Question_ID", "3"))
-    # # # await insertTable("QuestionBank", q3)
-    #
-    #NOTE: Users
-
     # (User_ID, Total_Completed, Total_Attempted)
-    # user_data1 = (USER_ID, 1, 1, int( RETRY_TIME_WINDOW.total_seconds() ) )
-    # print(int(RETRY_TIME_WINDOW.total_seconds()))
-    # await insertTable("Users", user_data1)
-    # user_data2 = (USER_ID2, 1, 1, int(RETRY_TIME_WINDOW.total_seconds()) )
-    # await insertTable("Users", user_data2, )
-    #
-    # #NOTE: Submission History
-    # # QID, COMP, CODE, DATE, RETRY DATE, NOTES, UID
-    #
-    # s1time = datetime.today() - timedelta(days = 3)
-    # s3time = datetime.today() + timedelta(days = 3)
-    # s4time = datetime.today() + timedelta(days = 4)
-    #
-    # s1 = (1, False, "None", s1time, s1time + RETRY_TIME_WINDOW, "Notes", USER_ID)
-    # s2 = (1, False, "None", s4time, s4time + RETRY_TIME_WINDOW, "Notes", USER_ID)
-    #
-    # s3 = (2, False, "None", s1time, s1time + RETRY_TIME_WINDOW, "Notes", USER_ID2)
-    # s4 = (2, False, "None", s3time, s3time + RETRY_TIME_WINDOW, "Notes", USER_ID2)
-    #
-    # await insertTable("QuestionHistory", s1)
-    # await insertTable("QuestionHistory", s2)
-    # await insertTable("QuestionHistory", s3)
-    # await insertTable("QuestionHistory", s4)
-    #
-    # #NOTE: 
-    # # [OTHER FUNCTIONS]
-    # # agetRetryWindow(USER_ID)
-    # # await getUpcoming(USER_ID2)
-    #
-    #
-    #
-    # print("----  printing all tables  ----")
-    # await printAllTables()
+    user_data1 = (USER_ID, 1, 1, int( RETRY_TIME_WINDOW.total_seconds() ) )
+    await insertTable("Users", user_data1)
 
-    # #NOTE: temprorary -> remove db for testingtemp
-    # os.remove("questions.db")
+    #NOTE: Question
+    #QID, NAME, DIFF, TYPE, UID
+    q1 = (1, "TWOSUM", "E", "ARRAY", USER_ID)
+    q2 = (2, "3WOSUM", "E", "ARRAY", USER_ID)
+    q3 = (3, "4WOSUM", "E", "ARRAY", USER_ID)
+    q4 = (4, "5WOSUM", "H", "ARRAY", USER_ID)
+
+    qa = (1, "TWOSUM", "H", "ARRAY", USER_ID2)
+    await insertTable("QuestionBank", q1)
+    await insertTable("QuestionBank", q2)
+    await insertTable("QuestionBank", q3)
+    await insertTable("QuestionBank", q4)
+
+    await insertTable("QuestionBank", qa)
+
+    #NOTE: Submission History
+    #QID, COMP, CODE, DATE, RETRY DATE, NOTES, UID
+    s1time = datetime.today() - timedelta(days = 2)
+    s2time = datetime.today() - timedelta(days = 1)
+    s3time = datetime.today() - timedelta(days = 0)
+    s3time = datetime.today() - timedelta(days = 0)
+    s1 = (1, False, "None", s1time, s1time + RETRY_TIME_WINDOW, "Notes", USER_ID)
+    s21 = (1, True, "For i in window\n", s2time, s2time + RETRY_TIME_WINDOW, "YOU FOIUND ME", USER_ID)
+    s2 = (2, True, "None", s2time, s2time + RETRY_TIME_WINDOW, "Notes", USER_ID)
+    s3 = (3, True, "None", s3time, s3time + RETRY_TIME_WINDOW, "Notes", USER_ID)
+    s4 = (4, True, "None", s3time, s3time + RETRY_TIME_WINDOW, "Notes", USER_ID)
+
+    sa = (1, True, "None", s3time, s3time + RETRY_TIME_WINDOW, "Notes", USER_ID2)
+
+    await insertTable("QuestionHistory", s1)
+    await insertTable("QuestionHistory", s21)
+    await insertTable("QuestionHistory", s2)
+    await insertTable("QuestionHistory", s3)
+    await insertTable("QuestionHistory", s4)
+
+    await insertTable("QuestionHistory", sa)
+
+    print("----  printing all tables  ----")
+    await printAllTables()
+    print("--- end of manual test ---")
+
+    # print(await getSubmissions(USER_ID, 1))
+
+    # print(await getCompleted(USER_ID))
 
 #BUG: Question History Insertion without exiting QID
-#TODO : IF USER NOT FOUND AT INSERTION, Create and insert user with USERID
-#NOTE: Initial QuestionLOG must be accompanied with initial submission log
-
 asyncio.run(main())
