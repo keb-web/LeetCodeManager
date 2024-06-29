@@ -3,11 +3,10 @@ import discord
 import os
 from discord.ext import commands
 from discord.utils import get
-
-from config import BOT_TOKEN
 import aioDB as ADB
 from datetime import timedelta, datetime
-from schema import RETRY_TIME_WINDOW
+from schema import RETRY_TIME_WINDOW, USER_ID
+from config import BOT_TOKEN
 
 # TODO: Make more verbose
 description = "Bot for tracking LCM"
@@ -58,6 +57,7 @@ async def on_message(message):
 # [Commands] 
 # TODO: Link discord commands to 'aioDB'
 
+# -- [Helper Commands]
 # TODO: fix formatiing
 @bot.command()
 async def helpLCM(ctx):
@@ -79,13 +79,14 @@ async def helpLCM(ctx):
  ?updateQuestion    -> [ Update Question ]
  ?deleteQuestion    -> [ Delete Question ]
  ?All               -> [ Display Question Bank ]
- ?History QID       -> [ Display Question, QID's, Submission History ]
+ ?history <QID>     -> [ Display Question, QID's, Submission History ]
  ?listTypes         -> [ Display Possible Question Types ]
+ ?getUpcoming       -> [ Display Failed Questions to Reattempt]
+ ?todo              -> [ Display Failed Question Scheduled to Reattempt Today]
 ```
 '''
 )
 
-#TODO: List Question Types
 QUESTION_TYPES = ["ARR", "LL", "HASHING", "TWOPOINTER", "BINARYSEARCH", "SLIDINGWINDOW", "TREES", "TRIES", "BACKTRACKING", "BFS", "DFS", "RECURSION", "HEAPS", "GRAPHS", "GREEDY", "GRAPHS"]
 
 #TODO: Clean up make nicer
@@ -113,6 +114,8 @@ def checkAddSubmissionInputFormat(QID, COMP, CODE, NOTES):
         return False
     return True
 
+# -- [INSERTION COMMANDS] --
+
 #Add Character limitaion for NOTES and CODE
 async def promptSub(ctx, QID):
     if not (await ADB.checkExisting("QuestionBank", "Question_ID", QID)):
@@ -122,7 +125,7 @@ async def promptSub(ctx, QID):
     def check(m):
         return m.channel == ctx.channel and m.author == ctx.author
     await ctx.send("```Did you complete the Question? (T/F)```") 
-    COMP = True if (await bot.wait_for('message', check=check)).content == "T" else False
+    COMP = True if (await bot.wait_for('message', check=check)).content.upper() == "T" else False
     await ctx.send("```What code did you use? Enter 'x' to skip```") 
     CODE = ( await bot.wait_for('message', check=check) ).content
     await ctx.send("```Any Notes? Enter 'x' to skip```") 
@@ -154,15 +157,32 @@ async def changeRetryWindow(ctx, day):
         d = int(day)
         await ADB.updateRetryDate(ctx.author.id, int(timedelta(days=d).total_seconds()))
 
-    print("--- end of changeRetryWindow --- ")
-    await ADB.printAllTables()
-
-
 @bot.command()
 async def listTypes(ctx):
     """Shows the valid possible question types"""
-    await ctx.send(f"```{QUESTION_TYPES}```")
-    pass
+    await ctx.send(f"""
+    ```
+╔════════════════╗
+║ Question Types ║ 
+╠════════════════╣
+║ ARR            ║
+║ LL             ║
+║ HASHING        ║
+║ TWOPOINTER     ║
+║ BINARYSEARCH   ║
+║ SLIDINGWINDOW  ║
+║ TREES          ║
+║ TRIES          ║
+║ BACKTRACKING   ║
+║ BFS            ║
+║ DFS            ║
+║ RECURSION      ║
+║ HEAPS          ║
+║ GRAPHS         ║
+║ GREEDY         ║
+║ GRAPHS         ║
+╚════════════════╝```
+    """)
 
 @bot.command()
 async def addSubmission(ctx):
@@ -221,10 +241,28 @@ async def addQuestion(ctx, QID: str, NAME: str, DIFF: str, TYPE: str):
     await ADB.printAllTables()
 
 # -- [Modiefer Commands] --
+# TEST:
+#TODO: Add Update NOtes/Code
 # ?UpdateQuestion
 @bot.command()
-async def cmd_UpdateQuestion(ctx):
-    pass
+async def update(ctx, qid):
+
+    def check(m):
+        return m.channel == ctx.channel and m.author == ctx.author
+    await ctx.send("```new Name, Difficulty, or Type?```")
+    CHANGE_TYPE= (await bot.wait_for('message', check=check)).content
+    if CHANGE_TYPE not in ["Name", "Diffculty", "QuestonType"]:
+        await ctx.send("Wrong options, try again!")
+        return
+
+    await ctx.send(f"```What is the new {CHANGE_TYPE}?```") 
+    CHANGE_VALUE = ( await bot.wait_for('message', check=check) ).content
+
+    await ADB.updateQuestion(ctx.author.id, qid, CHANGE_TYPE, CHANGE_VALUE)
+    await ADB.printAllTables()
+
+    #add exception
+    await ctx.send(f"New {CHANGE_TYPE} Updated to {CHANGE_VALUE}")
 
 # ?DeleteQuestion
 @bot.command()
@@ -234,24 +272,37 @@ async def cmd_DeleteQuestion(ctx):
 # -- [Getter Commands] --
 #TODO: 
 # - ?getupcoming, ?todo, ?all, ?completed, ?show <QID>
+# - User Stats Display
+# - Move helper functiosn and constants into seperate file
+# - Table for submission may be too large, create more getters for notes and code
 
-#TODO: Move helper functiosn and constants into seperate file
-
-qheader, qfooter = ("""
+qheader, qfooter, sheader, sfooter = ("""
 ╔═════╦════════╦════════╦════════════╗
 ║ QID ║  NAME  ║  DIFF  ║    TYPE    ║
 ╠═════╬════════╬════════╬════════════╣
 """,
 """
 ╚═════╩════════╩════════╩════════════╝
+""",
+"""
+use ?submission <#> for more details
+╔═════╦════════════╦════════════╦══════╗
+║  #  ║  Attempted ║  To Retry  ║ Pass ║
+╠═════╬════════════╬════════════╬══════╣
+""",
+"""
+╚═════╩════════════╩════════════╩══════╝
 """)
 
 def questionTableFormatter(items):
+    diff = {"E": "EASY", "M": "MED", "H": "HARD"}
     row_format ="║ {:^4}║ {:6s} ║  {:^4s}  ║ {:^10s} ║"
     dataString = ""
     dataString += qheader
+
     for item in items:
         QID, NAME, DIFF, TYPE = item
+        DIFF = diff[DIFF]
         if len(NAME) > 6:
             NAME = NAME[0:5]
             NAME += '-'
@@ -264,38 +315,84 @@ def questionTableFormatter(items):
     return dataString
 
 
+#Can prob combine two function below:
 @bot.command()
 async def getUpcoming(ctx):
     """Displays previously failed questions"""
     items = await ADB.getUpcoming(ctx.author.id)
+    print(items)
     await ctx.send("Questions that should be reattempted:")
     if items == []:
-        ctx.send("Nothing to reattempt :-)")
+        await ctx.send("Nothing to reattempt :-)")
     else:
         await ctx.send(f"```{questionTableFormatter(items)}```")
+
+
+def submissionTableFormatter(items):
+    row_format ="║{:^5}║{:^12s}║{:^12s}║ {:5s}║"
+    dataString = ""
+    dataString += sheader
+    for item in items:
+        QID, ATTMP, RETRY, PASS = item
+        print(f"pass = {PASS}")
+        ATTMP = ATTMP.split()[0]
+        RETRY = RETRY.split()[0]
+        PASS = "YES" if PASS == 1 else "NO" 
+        print(QID, ATTMP, RETRY, PASS)
+        dataString += row_format.format(QID, ATTMP, RETRY, PASS) + "\n"
+    dataString = dataString.rstrip() # Remove trailing 
+    dataString += sfooter
+    return dataString
 
 # ?Todo
 @bot.command()
 async def todo(ctx):
-    """display questions To be retried today"""
+    #Formatting
     items = await ADB.getTodoToday(ctx.author.id)
+    print(items)
     await ctx.send("retry these questions today:")
     if items == []:
-        ctx.send("No questions to redo today :-)")
+        await ctx.send("No questions to redo today :-)")
     else:
         await ctx.send(f"```{questionTableFormatter(items)}```")
 
+#TEST:
+@bot.command()
+async def history(ctx, QID):
+    """Question ID's submission history"""
+    # items = await ADB.getSubmissions(ctx.author.id, QID)
+    items = await ADB.getSubmissions(USER_ID, QID)
+    print(items)
+    await ctx.send(f"```Question {QID}'s History:\n{submissionTableFormatter(items)}```")
+
+@bot.command()
+async def submission(ctx, HID):
+    # NOTES = (await ADB.getRowValue(USER_ID, HID, "Notes", "QuestionHistory"))
+    # CODE  = (await ADB.getRowValue(USER_ID, HID, "Code", "QuestionHistory"))
+
+    NOTES = ADB.getRowValue(ctx.author.id, HID, "Notes", "QuestionHistory")
+    CODE  = ADB.getRowValue(ctx.author.id, HID, "Code", "QuestionHistory")
+
+    #BUG:
+    await ctx.send(f"```Notes:\n{NOTES[0]}```")
+    await ctx.send(f"```Code:\n{CODE[0]}```")
 
 @bot.command()
 async def completed(ctx):
-    "All completed Questions"
-    pass
+    """All of user's completed Questions"""
+    items = await ADB.getCompleted(ctx.author.id)
+    await ctx.send(f"```You have compelted the following questions\n{questionTableFormatter(items)}```")
+
+# -- USER DISPLAY
 
 @bot.command()
-async def submissionHistory(ctx, QID):
-    """Question ID's submission history"""
-    pass
+async def myStats(ctx):
+    """Displays amount of questions user completed and attempted"""
+    completed, attempted = await ADB.getUserStats(ctx.author.id)
+    await ctx.send(f"```{completed} completed out of {attempted} attempted```")
 
+
+# -- [ ERROR HANDLING ] --
 # async def on_command_error(self, ctx: commands.Context, error):
 #     #Error Handling
 #     if isinstance(error, commands.MissingRequiredArgument):
